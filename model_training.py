@@ -15,6 +15,8 @@ import torchvision.transforms.functional as TF
 from tqdm import tqdm
 from local_models import *
 from PIL import Image, UnidentifiedImageError
+from sklearn.metrics import roc_curve, auc
+import numpy as np
 
 # Hyper params
 lr = 0.1
@@ -30,6 +32,7 @@ alpha = 1
 # Set up device
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
+print('device cuda: ', torch.cuda.is_available())
 torch.cuda.memory_summary(device=None, abbreviated=False)
 torch.cuda.empty_cache()
 
@@ -64,17 +67,17 @@ data_transforms = {
         transforms.RandomResizedCrop(64),
         transforms.Pad(4),
         transforms.RandomHorizontalFlip(),
-        rgba_to_tensor,
+        transforms.ToTensor(),
     ]),
     'val': transforms.Compose([
         transforms.Resize(224),
         transforms.CenterCrop(224),
-        rgba_to_tensor,
+        transforms.ToTensor(),
     ]),
     'test': transforms.Compose([
         transforms.Resize(224),
         transforms.CenterCrop(224),
-        rgba_to_tensor,
+        transforms.ToTensor(),
     ]),
 }
 # Set up dataset and dataloaders
@@ -83,9 +86,9 @@ data_transforms = {
 print('==> Preparing data..')
 dataset_path = 'dataset/trashbox/'
 train_dataset = torchvision.datasets.ImageFolder(os.path.join(dataset_path, 'train'), data_transforms['train'])
-train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=120, shuffle=True, num_workers=4)
-test_dataset = torchvision.datasets.ImageFolder(os.path.join(dataset_path, 'val'), data_transforms['test'])
-test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=120, shuffle=False, num_workers=4)
+train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=32, shuffle=True, num_workers=4)
+test_dataset = torchvision.datasets.ImageFolder(os.path.join(dataset_path, 'test'), data_transforms['test'])
+test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=32, shuffle=False, num_workers=4)
 class_names = train_dataset.classes
 num_classes = len(class_names)
 print(f"Class names: {class_names} Num classes: {num_classes}")
@@ -93,18 +96,10 @@ print(f"Class names: {class_names} Num classes: {num_classes}")
 # Set teacher model
 
 print('==> Building teacher model..')
-teacher_net = models.googlenet(pretrained=True, num_classes=num_classes)
+teacher_net = models.resnet50(num_classes=num_classes)
 teacher_net = teacher_net.to(device)
 for param in teacher_net.parameters():
     param.requires_grad = False
-
-# Hyperparameters for adversarial attack
-
-config = {
-    'epsilon': 8.0 / 255,
-    'num_steps': 10,
-    'step_size': 2.0 / 255,
-}
 
 # Setup loss functions
 
@@ -120,8 +115,9 @@ def train(epoch, optimizer):
     for batch_idx, (inputs, targets) in enumerate(iterator):
         inputs, targets = inputs.to(device), targets.to(device)
         optimizer.zero_grad()
-        teacher_outputs = teacher_net(inputs).logits
+        teacher_outputs = teacher_net(inputs)
         loss = XENT_loss(teacher_outputs, targets)
+        loss.requires_grad = True
         loss.backward()
         optimizer.step()
         train_loss += loss.item()
@@ -164,8 +160,7 @@ def main():
         train_loss = train(epoch, optimizer)
         print('Train Loss: ', train_loss)
         if (epoch+ 1) % val_period == 0:
-            natural_val, robust_val = test(epoch, optimizer)
-            print(f'Epoch: {epoch+1}, Natural Acc: {natural_val}, Robust Acc: {robust_val}')
-
+            natural_val  = test(epoch, optimizer)
+            print(f'Natural accuracy: {natural_val}')
 if __name__ == '__main__':
     main()
