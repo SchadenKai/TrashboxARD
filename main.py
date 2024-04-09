@@ -30,25 +30,6 @@ dataset = 'Trashbox'
 model = 'Mobilenetv3'
 teacher_model = 'InceptionV3'
 
-
-# parser = argparse.ArgumentParser(description='Trashbox ARD Training')
-
-# parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
-# parser.add_argument('--lr_schedule', type=int, nargs='+', default=[100, 150], help='Decrease learning rate at these epochs.')
-# parser.add_argument('--lr_factor', default=0.1, type=float, help='factor by which to decrease lr')
-# parser.add_argument('--epochs', default=100, type=int, help='number of epochs for training')
-# parser.add_argument('--output', default = '', type=str, help='output subdirectory')
-# parser.add_argument('--model', default = 'MobileNetV3', type = str, help = 'student model name')
-# parser.add_argument('--teacher_model', default = 'Googlenet', type = str, help = 'teacher network model')
-# parser.add_argument('--teacher_path', default = '', type=str, help='path of teacher net being distilled')
-# parser.add_argument('--temp', default=30.0, type=float, help='temperature for distillation')
-# parser.add_argument('--val_period', default=1, type=int, help='print every __ epoch')
-# parser.add_argument('--save_period', default=1, type=int, help='save every __ epoch')
-# parser.add_argument('--alpha', default=1.0, type=float, help='weight for sum of losses')
-# parser.add_argument('--dataset', default = 'Trashbox', type=str, help='name of dataset')
-# args = parser.parse_args()
-
-
 # Set up device
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -109,35 +90,6 @@ data_transforms = {
 
 print('==> Preparing data..'+ dataset)
 
-# transform_train = transforms.Compose([
-#     transforms.RandomCrop(32, padding=4),
-#     transforms.RandomHorizontalFlip(),
-#     transforms.ToTensor(),
-# ])
-# transform_test = transforms.Compose([
-#     transforms.ToTensor(),
-# ])
-# if dataset == 'CIFAR10':
-#     trainset = torchvision.datasets.CIFAR10(root='./data', train=True, download=True, transform=transform_train)
-#     trainloader = torch.utils.data.DataLoader(trainset, batch_size=128, shuffle=True, num_workers=2)
-#     testset = torchvision.datasets.CIFAR10(root='./data', train=False, download=True, transform=transform_test)
-#     testloader = torch.utils.data.DataLoader(testset, batch_size=100, shuffle=False, num_workers=2)
-#     num_classes = 10
-# elif dataset == 'CIFAR100':
-#     trainset = torchvision.datasets.CIFAR100(root='./data', train=True, download=True, transform=transform_train)
-#     trainloader = torch.utils.data.DataLoader(trainset, batch_size=256, shuffle=True, num_workers=2)
-#     testset = torchvision.datasets.CIFAR100(root='./data', train=False, download=True, transform=transform_test)
-#     testloader = torch.utils.data.DataLoader(testset, batch_size=100, shuffle=False, num_workers=2)
-#     num_classes = 100
-# elif dataset == 'Trashbox':
-#     train_dataset = torchvision.datasets.ImageFolder(os.path.join(dataset_path, 'train'), data_transforms['train'])
-#     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=128, shuffle=True, num_workers=4)
-#     test_dataset = torchvision.datasets.ImageFolder(os.path.join(dataset_path, 'val'), data_transforms['val'])
-#     test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=100, shuffle=False, num_workers=4)
-#     class_names = train_dataset.classes
-#     print(f"Class names: {class_names}")
-#     num_classes = 7
-
 train_dataset = torchvision.datasets.ImageFolder(os.path.join(dataset_path, 'train'), data_transforms['train'])
 train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=40, shuffle=True, num_workers=4)
 test_dataset = torchvision.datasets.ImageFolder(os.path.join(dataset_path, 'val'), data_transforms['test'])
@@ -150,36 +102,12 @@ print(f"Class names: {class_names} Num classes: {num_classes}")
 # Set student model
 
 print('==> Building student model..'+ model)
-# if model == 'Googlenet':
-# 	basic_net = models.googlenet(pretrained=False, num_classes=num_classes)
-# elif model == 'InceptionV3':
-# 	basic_net = models.inception_v3(pretrained=False, num_classes=num_classes)
-# elif model == 'ResNet50':
-# 	basic_net = models.resnet50(pretrained=False, num_classes=num_classes)
-# elif model == 'Xception':
-# 	basic_net = xception(pretrained=False, num_classes=num_classes)
-# elif model == 'MobileNetv3':
-# 	model = models.mobilenet_v3_small(pretrained=False, num_classes=num_classes)
-# mobilenet_v3_small_default_weights = models.MobileNet_V3_Small_Weights.DEFAULT
 basic_net = models.mobilenet_v3_small(num_classes=num_classes)
 basic_net = basic_net.to(device)
 
 # Set teacher model
 
 print('==> Building teacher model..'+ teacher_model)
-# if teacher_path != '':
-# 	if teacher_model == 'Googlenet':
-# 		teacher_net = models.googlenet(pretrained=False, num_classes=num_classes)
-# 	elif teacher_model == 'InceptionV3':
-# 		teacher_net = models.inception_v3(pretrained=False, num_classes=num_classes)
-# 	elif teacher_model == 'ResNet50':
-# 		teacher_net = models.resnet50(pretrained=False, num_classes=num_classes)
-# 	elif teacher_model == 'Xception':
-# 		teacher_net = xception(pretrained=False, num_classes=num_classes)
-
-# 	teacher_net = teacher_net.to(device)
-# 	for param in teacher_net.parameters():
-# 		param.requires_grad = False
 
 teacher_net = models.googlenet(num_classes=num_classes)
 teacher_net = teacher_net.to(device)
@@ -189,9 +117,9 @@ for param in teacher_net.parameters():
 # Hyperparameters
 
 config = {
-    'epsilon': 8.0 / 255,
+    'epsilon': 8.0 / 224,
     'num_steps': 10,
-    'step_size': 2.0 / 255,
+    'step_size': 2.0 / 224,
 }
 
 # Setup Adversarial Attack
@@ -299,4 +227,4 @@ def main():
             print(f'Epoch: {epoch+1}, Natural Acc: {natural_val}, Robust Acc: {robust_val}')
 
 if __name__ == '__main__':
-    main()
+    main() 
