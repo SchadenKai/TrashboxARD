@@ -150,13 +150,14 @@ def test(epoch, optimizer):
                 print('Current benign test accuracy:', str(predicted.eq(targets).sum().item() / targets.size(0)))
                 print('Current benign test loss:', loss.item())
         
-            adv = attack(inputs)
-            adv_outputs = model(adv)
-            loss = criterion(adv_outputs, targets)
-            adv_loss += loss.item()
+            with torch.enable_grad():
+                adv = attack(inputs)
+                adv_outputs = model(adv)
+                loss = criterion(adv_outputs, targets)
+                adv_loss += loss.item()
 
-            _, predicted = adv_outputs.max(1)
-            adv_correct += predicted.eq(targets).sum().item()
+                _, predicted = adv_outputs.max(1)
+                adv_correct += predicted.eq(targets).sum().item()
 
             if i % 10 == 0:
                 print('Current adversarial test accuracy:', str(predicted.eq(targets).sum().item() / targets.size(0)))
