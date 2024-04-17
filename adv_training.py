@@ -16,6 +16,7 @@ import sys
 import torchattacks
 import local_models 
 from local_models import trades
+import local_models.resnet50
 
 # Device 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -32,7 +33,7 @@ lr_schedule = [100,150]
 weight_decay = 0.0002
 batch_size = 128
 val_period = 1
-file_name = "xception_trashbox_adv_training"
+file_name = "resnet50_trashbox_adv_training"
 
 # Attack hyperparams 
 
@@ -48,13 +49,12 @@ writer = SummaryWriter("runs/trashbox/" + file_name)
 
 data_transforms = {
     'train': transforms.Compose([
-        transforms.RandomResizedCrop(height),
+        transforms.Resize((height, height)),
         transforms.RandomHorizontalFlip(),
         transforms.ToTensor(),
     ]),
     'test': transforms.Compose([
-        transforms.Resize(256),
-        transforms.CenterCrop(height),
+        transforms.Resize((height, height)),
         transforms.ToTensor(),
     ]),
 }
@@ -78,7 +78,12 @@ img_grid = torchvision.utils.make_grid(samples)
 writer.add_image("Trashbox images", img_grid)
 
 print('====>> Setting up model...')
-model = local_models.xception(num_classes=num_classes).to(device)
+# model = local_models.xception(num_classes).to(device)
+model = models.resnet50(weights=models.ResNet50_Weights.DEFAULT).to(device)
+model.fc = nn.Linear(in_features=2048, out_features=num_classes, bias=True).to(device)
+
+# model = models.googlenet(pretrained=True, num_classes=num_classes).to(device)
+# model = models.inception_v3(pretrained=True, num_classes=num_classes).to(device)
 
 attack = torchattacks.TPGD(model=model, eps=epsilon, alpha=alpha, steps=steps)
 criterion = nn.CrossEntropyLoss()
@@ -133,8 +138,6 @@ def test(epoch, optimizer):
         for i, (inputs, targets) in enumerate(iterator):
             inputs, targets = inputs.to(device), targets.to(device)
             total += targets.size(0)
-            
-            print('normal input shape: ', inputs.shape)
             output = model(inputs)
             loss = criterion(output, targets)
             benign_loss += loss.item()
@@ -171,7 +174,10 @@ def test(epoch, optimizer):
     
     # Save checkpoint
     state = {
-        'net': model.state_dict()
+        'epoch': epoch,
+        'net': model.state_dict(),
+        'optim' : optimizer.state_dict(),
+        'loss' : loss
     }
     if not os.path.isdir('checkpoint'):
         os.mkdir('checkpoint')
