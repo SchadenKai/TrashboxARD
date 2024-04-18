@@ -21,6 +21,8 @@ from local_models import trades
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 # Hyperparams
+mean = torch.tensor([0.6521, 0.6325, 0.6088])
+std = torch.tensor([0.2209, 0.2221, 0.2288])
 
 input_size = 12288 # 3*64*64
 height = 64
