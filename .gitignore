@@ -1,4 +1,7 @@
 ./data/*
+./dataset/**/**/*
 ./dataset/**/*
 ./dataset/*
 ./checkpoint/*
+*.jpg
+*.png
