@@ -20,15 +20,15 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 mean = torch.tensor([0.6521, 0.6325, 0.6088])
 std = torch.tensor([0.2209, 0.2221, 0.2288])
 
-input_size = 12288 # 3*64*64
-height = 64
+# input_size = 12288 # 3*64*64
+height = 299
 num_classes = 7
 epochs = 100
 lr = 0.01
 lr_factor = 0.1
 lr_schedule = [50,100, 150]
 weight_decay = 0.0001
-batch_size = 128
+batch_size = 64
 val_period = 1
 file_name = "inceptionv3_trashbox_adv_training"
 model_name = "Inceptionv3"
@@ -79,7 +79,7 @@ writer.add_image("Trashbox images", img_grid)
 
 print('====>> Setting up model...')
 # model = local_models.xception(num_classes=num_classes).to(device)
-model = models.inception_v3(weights=models.Inception_V3_Weights.DEFAULT)
+model = models.inception_v3(weights=models.Inception_V3_Weights.DEFAULT).to(device)
 infeatures = model.fc.in_features
 model.aux_logits = False
 
@@ -87,7 +87,7 @@ model.aux_logits = False
 for parameter in model.parameters():
     parameter.requires_grad = False
     
-model.fc = nn.Linear(infeatures, num_classes, True, device)
+model.fc = nn.Linear(infeatures, num_classes, True).to(device)
 
 
 
@@ -107,7 +107,7 @@ def train(epoch, optimizer):
     iterator = tqdm(trash_train_loader, ncols=0, leave=False)
     for i, (inputs, targets)in enumerate(iterator):
         inputs, targets = inputs.to(device),targets.to(device)
-        
+
         optimizer.zero_grad()
         adv_image = attack(inputs, targets)
         adv_output = model(adv_image)
